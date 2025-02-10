@@ -1,27 +1,19 @@
 import streamlit as st
-from langchain.tools import StructuredTool
 from langchain.tools.retriever import create_retriever_tool
-from langchain_experimental.tools import PythonREPLTool
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_community.vectorstores import FAISS
-from langchain_community.document_loaders import WebBaseLoader
 from langchain_core.messages import ChatMessage
 from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.runnables import RunnablePassthrough
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.memory import ChatMessageHistory
 from langchain_teddynote.messages import stream_response
 from langchain_teddynote import logging
-from langchain_ollama import ChatOllama
 from langchain_huggingface import HuggingFaceEmbeddings
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-import bs4
 from utils import StreamHandler
 
 # langsmith 추적 
@@ -43,7 +35,6 @@ vectorstore = FAISS.load_local(
 
 
 # retriever/search 생성
-python_tool = PythonREPLTool()
 retriever = vectorstore.as_retriever()
 retriever_tool = create_retriever_tool(
     retriever,
