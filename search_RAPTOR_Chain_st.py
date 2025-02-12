@@ -65,7 +65,7 @@ def create_chain(stream_handler=None):
         [
             (
                 "system",
-                "You are a helpful assistant who must only provide extremely detailed, data-driven information. \n" +
+                "You are a helpful urban information assistant who must only provide extremely detailed, data-driven information. \n" +
                 "1. Avoid all abstract or speculative statements. \n" +
                 "2. When asked about probabilities or likelihoods, you must present definitive, exact percentages or values only. \n" +
                 "3. Use \$ dollar signs instead of $ for express money other than math equations. \n" +
@@ -188,7 +188,7 @@ st.sidebar.markdown("#### Chats")
 def get_two_word_summary(text):
     summary_llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
     summary_prompt = ChatPromptTemplate.from_messages([
-        ("system", "Summarize the given text in exactly two words. Return only those two words."),
+        ("system", "Summarize the given text in 15 characters. Return only those characters."),
         ("user", "{text}")
     ])
     chain = summary_prompt | summary_llm | StrOutputParser()
@@ -274,9 +274,7 @@ st.markdown(f"""
             display: none;
         }}
         
-        div[data-testid="stChatMessageAvatarAssistant"] {{
-            display: none;
-        }}
+        
         </style>
         
         """, unsafe_allow_html=True)
@@ -285,8 +283,12 @@ st.markdown(f"""
 def print_messages(session_id):
     messages = st.session_state.chat_sessions[session_id]["messages"]
     for chat_message in messages:
-        with st.chat_message(chat_message.role):
-            st.write(chat_message.content)
+        if chat_message.role == "user":
+            with st.chat_message(chat_message.role):
+                st.write(chat_message.content)
+        else:
+            with st.chat_message(chat_message.role, avatar="😎"):
+                st.write(chat_message.content)
 
 def add_message(session_id, role, content):
     st.session_state.chat_sessions[session_id]["messages"].append(
@@ -313,7 +315,7 @@ if active_session_id:
         add_message(active_session_id, "user", user_input)
 
         # 매번 새로운 체인과 stream_handler를 생성합니다.
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar="😎"):
             with st.spinner("Generating response..."):
                 stream_handler = StreamHandler(st.empty())
                 chain = create_chain(stream_handler=stream_handler)
