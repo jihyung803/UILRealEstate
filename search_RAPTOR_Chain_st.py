@@ -15,6 +15,9 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from utils import StreamHandler
+from datetime import datetime
+
+today_date = datetime.now().strftime("%Y-%m-%d")
 
 # langsmith 추적 
 load_dotenv()
@@ -44,8 +47,7 @@ retriever_tool = create_retriever_tool(
 search = TavilySearchResults(k=4)
 tools = [search, retriever_tool]
 
-# Custom utilities
-from utils import StreamHandler
+
 
 
 
@@ -68,8 +70,9 @@ def create_chain(stream_handler=None):
                 "2. When asked about probabilities or likelihoods, you must present definitive, exact percentages or values only. \n" +
                 "3. Use \$ dollar signs instead of $ for express money other than math equations. \n" +
                 "4. Wrap with $$ for any math equations and do not include $ inside of equation. \n" +
-                "5. Do not use any LaTeX commands that are not supported by KaTeX. \n"
-                "6. If you cannot find a specific piece of information within the provided PDF documents, you must use the `search` tool to retrieve information from the web. \n" +
+                "5. Today is " + today_date + ". \n" +
+                "5. Do not use any LaTeX commands that are not supported by KaTeX. \n" +
+                "6. You must use the `search` tool to retrieve information from the web. \n" +
                 "7. Always ensure that your answers are factual and thoroughly supported by data, without any ambiguity. \n" +
                 "8. Show all of your calculations and reasoning in a clear, step-by-step manner. \n" +
                 "9. Finally, always provide a chart of the data that you used to derive your answer. \n"
@@ -89,7 +92,6 @@ def create_chain(stream_handler=None):
 # Streamlit UI
 ##############################################################################
 st.set_page_config(page_title="Urban Info Lab Real Estate", page_icon="🏠", layout="wide")
-st.title("Urban Info Lab Real Estate 💬")
 
 
 # 1) Custom CSS: darker hover and "active" style
@@ -112,6 +114,11 @@ st.markdown(
     button.active {
         background-color: #444 !important;
     }
+    
+    hr {
+        margin-top: 0.0px !important;
+        margin-bottom: 2px !important;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -124,6 +131,32 @@ if "chat_sessions" not in st.session_state:
     st.session_state.chat_sessions = {}  # session_id -> {"messages": [...], "history": ChatMessageHistory()}
 if "active_session_id" not in st.session_state:
     st.session_state.active_session_id = None
+    
+if st.session_state.active_session_id is None:
+    st.title("What should I help you with today?")
+    st.markdown(
+        """
+        <style>
+        .st-emotion-cache-b499ls {
+            align-items: center;
+            margin-top: 15%;
+            padding-left: 20%;
+            padding-right: 20%;
+        }
+        
+        .st-emotion-cache-qcqlej {
+            display: none;    
+        }
+        
+        .st-emotion-cache-1y34ygi {
+            padding-left: 20%;
+            padding-right: 20%;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
 # 체인 캐싱 관련 코드는 제거합니다.
 # if "chain_cache" not in st.session_state:
 #     st.session_state.chain_cache = {}
@@ -142,11 +175,12 @@ def create_new_session():
 
 st.sidebar.title("OpenCityAI")
 
-if st.sidebar.button("📝 New Conversation "):
+st.sidebar.markdown("---")
+if st.sidebar.button("➕ New Chat"):
     new_id = create_new_session()
     st.session_state.active_session_id = new_id
     st.rerun()
-
+st.sidebar.markdown("---")
 
 st.sidebar.markdown("#### Chats")
 
@@ -209,9 +243,43 @@ if st.session_state.active_session_id is None:
     else:
         new_id = create_new_session()
         st.session_state.active_session_id = new_id
+
+st.sidebar.markdown("---")
+
+col1, col2 = st.sidebar.columns(2)
+
+with col1:
+    st.image(image="./assets/urbaninfolab.png", use_container_width=True)
+
+# with col2:
+#     st.image(image="./assets/UTAustin-Final.png", use_container_width=True)
+    
+st.markdown(f"""
+        <style>
+        .e6rk8up0 div {{
+            position : fixed;
+            bottom : 0;
+            width : 10%;
+            margin-bottom : 2px;
+        }}
         
 
-# ----------------------------------------------------------------------------
+        .st-emotion-cache-1c7y2kd {{
+            margin-left: 50%;
+            align-items: left;
+            width: auto;
+        }}
+        
+        div[data-testid="stChatMessageAvatarUser"] {{
+            display: none;
+        }}
+        
+        div[data-testid="stChatMessageAvatarAssistant"] {{
+            display: none;
+        }}
+        </style>
+        
+        """, unsafe_allow_html=True)
 # 4) Functions to store/retrieve messages
 # ----------------------------------------------------------------------------
 def print_messages(session_id):
@@ -227,6 +295,7 @@ def add_message(session_id, role, content):
 
 def get_session_history(session_id: str) -> BaseChatMessageHistory:
     return st.session_state.chat_sessions[session_id]["history"]
+
 
 # ----------------------------------------------------------------------------
 # 5) Show current session’s messages
@@ -245,22 +314,20 @@ if active_session_id:
 
         # 매번 새로운 체인과 stream_handler를 생성합니다.
         with st.chat_message("assistant"):
-            stream_handler = StreamHandler(st.empty())
-            chain = create_chain(stream_handler=stream_handler)
-            with_message_history = (
-                RunnableWithMessageHistory(  # RunnableWithMessageHistory 객체 생성
-                    chain,  # 실행할 Runnable 객체
-                    get_session_history,  # 세션 기록을 가져오는 함수
-                    input_messages_key="input",  # 입력 메시지의 키
-                    history_messages_key="history",  # 기록 메시지의 키
+            with st.spinner("Generating response..."):
+                stream_handler = StreamHandler(st.empty())
+                chain = create_chain(stream_handler=stream_handler)
+                with_message_history = RunnableWithMessageHistory(
+                    chain, 
+                    get_session_history,
+                    input_messages_key="input",
+                    history_messages_key="history",
                 )
-            )
 
-            stream_response = with_message_history.invoke(
-                {"input": "Answer of your question: " + user_input},
-                config = {"configurable": {"session_id": active_session_id}},
+                stream_response = with_message_history.invoke(
+                    {"input": user_input},
+                    config={"configurable": {"session_id": active_session_id}},
                 )["output"]
-                    
 
             assistant_msg = stream_response
             add_message(active_session_id, "assistant", assistant_msg)
